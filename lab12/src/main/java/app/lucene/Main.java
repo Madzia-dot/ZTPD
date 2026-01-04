@@ -1,0 +1,87 @@
+package app.lucene;
+
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
+import org.apache.lucene.document.*;
+import org.apache.lucene.index.*;
+import org.apache.lucene.queryparser.classic.QueryParser;
+import org.apache.lucene.search.*;
+import org.apache.lucene.store.ByteBuffersDirectory;
+import org.apache.lucene.store.Directory;
+
+public class Main {
+    private static Document buildDoc(String title, String isbn) {
+        Document doc = new Document();
+        // TextField jest tokenizowany
+        doc.add(new TextField("title", title, Field.Store.YES));
+        // StringField jest indeksowany jako jedna całość
+        doc.add(new StringField("isbn", isbn, Field.Store.YES));
+        return doc;
+    }
+    public static void main(String[] args) throws Exception {
+        // a) Analizator tekstu [cite: 27]
+        //StandardAnalyzer analyzer = new StandardAnalyzer();
+        //EnglishAnalyzer analyzer = new EnglishAnalyzer();
+        // EnglishAnalyzer ma wbudowaną listę stop-words
+        org.apache.lucene.analysis.pl.PolishAnalyzer analyzer = new org.apache.lucene.analysis.pl.PolishAnalyzer();
+        // b) Lokalizacja indeksu
+        Directory directory = new ByteBuffersDirectory();
+
+        // c) Konfiguracja i IndexWriter
+        IndexWriterConfig config = new IndexWriterConfig(analyzer);
+        IndexWriter w = new IndexWriter(directory, config);
+
+        // d) Dodawanie dokumentów
+        //w.addDocument(buildDoc("Lucene in Action", "9781473671911"));
+        //w.addDocument(buildDoc("Lucene for Dummies", "9781250301695"));
+        //w.addDocument(buildDoc("Managing Gigabytes", "9780735219090"));
+        //w.addDocument(buildDoc("The Art of Computer Science", "9781982131739"));
+        //w.addDocument(buildDoc("Dummy and yummy title", "9780525656161"));
+        // Dodanie nowych dokumentów
+        w.addDocument(buildDoc("Lucyna w akcji", "9780062316097"));
+        w.addDocument(buildDoc("Akcje rosną i spadają", "9780385545955"));
+        w.addDocument(buildDoc("Bo ponieważ", "9781501168007"));
+        w.addDocument(buildDoc("Naturalnie urodzeni mordercy", "9780316485616"));
+        w.addDocument(buildDoc("Druhna rodzi", "9780593301760"));
+        w.addDocument(buildDoc("Urodzić się na nowo", "9780679777489"));
+        // e) Zamknięcie writera
+        w.close();
+
+        // a) Definicja zapytania
+        //String querystr = "*:*";
+        //String querystr = "dummy";
+        //String querystr = "and";
+        // Definicja zapytań do języka polskiego
+        //String querystr = "isbn:9780062316097";
+        //String querystr = "urodzić";
+        //String querystr = "rodzić";
+        //String querystr = "ro*";
+        //String querystr = "ponieważ";
+        //String querystr = "Lucyna AND akcja";
+        //String querystr = "akcja -Lucyna";
+        String querystr = "naturalne~";
+
+
+        // b) Parsowanie zapytania
+        Query q = new QueryParser("title", analyzer).parse(querystr);
+
+        // c)
+        int maxHits = 10;
+        IndexReader reader = DirectoryReader.open(directory);
+        IndexSearcher searcher = new IndexSearcher(reader);
+        TopDocs docs = searcher.search(q, maxHits);
+        ScoreDoc[] hits = docs.scoreDocs;
+
+        // d)
+        System.out.println("Found " + hits.length + " matching docs.");
+        StoredFields storedFields = searcher.storedFields();
+        for (int i = 0; i < hits.length; ++i) {
+            int docId = hits[i].doc;
+            Document d = storedFields.document(docId);
+            System.out.println((i + 1) + ". " + d.get("isbn") + "\t" + d.get("title"));
+        }
+
+        // e) Zamknięcie readera
+        reader.close();
+    }
+}
